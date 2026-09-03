@@ -9,18 +9,37 @@ const DEFAULT_SETTINGS = {
   showDock: true
 };
 
+const THREAD_OVERRIDES_KEY = "threadKeepCounts";
 const MODE_HINTS = {
-  safe: "Keeps the full ChatGPT React tree. CSS containment skips off-screen paint/layout, but RAM savings are limited.",
-  turbo: "Trims old history before React sees it, keeps a lightweight text archive for lazy browsing, and hibernates excess DOM as a fallback.",
-  extreme: "Turbo plus text-only DOM fallback snapshots and more aggressive trace compaction. Reload for original formatting after fallback pruning."
+  safe: "Maximum compatibility. Keeps the full React tree and uses rendering containment only.",
+  turbo: "Best balance. Trims old history before React and keeps lightweight lazy history.",
+  extreme: "Lowest RAM. Adds more aggressive fallback snapshots and trace compaction."
 };
 
 let activeTabId = null;
+let activeConversationId = null;
+let settings = { ...DEFAULT_SETTINGS };
+let threadOverrides = {};
 let saveTimer = null;
+let threadDirty = false;
+
+const $ = (selector) => document.querySelector(selector);
+const clamp = (value, min, max, fallback) => Math.min(max, Math.max(min, Number(value) || fallback));
+
+function conversationIdFromUrl(urlString) {
+  try {
+    const url = new URL(urlString);
+    const match = url.pathname.match(/\/c\/([^/?#]+)/) || url.pathname.match(/\/share\/([^/?#]+)/);
+    return match?.[1] || null;
+  } catch {
+    return null;
+  }
+}
 
 async function activeTab() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   activeTabId = tab?.id ?? null;
+  activeConversationId = conversationIdFromUrl(tab?.url || "");
   return tab;
 }
 
@@ -31,25 +50,48 @@ async function send(type) {
 }
 
 function setModeHint(mode) {
-  document.querySelector("#modeHint").textContent = MODE_HINTS[mode] || "";
+  $("#modeHint").textContent = MODE_HINTS[mode] || "";
+}
+
+function updateThreadControls() {
+  const available = Boolean(activeConversationId);
+  const hasOverride = available && Object.prototype.hasOwnProperty.call(threadOverrides, activeConversationId);
+  const overrideValue = hasOverride ? threadOverrides[activeConversationId] : settings.keepCount;
+
+  $("#threadOverrideRow").style.opacity = available ? "1" : ".42";
+  $("#threadOverrideEnabled").disabled = !available;
+  $("#threadOverrideEnabled").checked = hasOverride;
+  $("#threadKeepCount").disabled = !available || !hasOverride;
+  $("#threadKeepCount").value = overrideValue;
+  $("#threadOverrideHelp").textContent = available
+    ? `Override the ${settings.keepCount}-message default only for this thread.`
+    : "Open a saved ChatGPT conversation to set a thread override.";
+
+  const effective = hasOverride ? overrideValue : settings.keepCount;
+  $("#effectiveBadge").textContent = hasOverride ? `This thread · ${effective}` : `Default · ${effective}`;
+  $("#reloadNotice").hidden = !threadDirty || !available;
 }
 
 async function load() {
-  const settings = { ...DEFAULT_SETTINGS, ...(await chrome.storage.sync.get(DEFAULT_SETTINGS)) };
-  document.querySelector("#enabled").checked = settings.enabled;
-  document.querySelector(`input[name="mode"][value="${settings.mode}"]`).checked = true;
-  document.querySelector("#keepCount").value = settings.keepCount;
-  document.querySelector("#batchSize").value = settings.batchSize;
-  document.querySelector("#autoCollapseTraces").checked = settings.autoCollapseTraces;
-  document.querySelector("#longResponseVirtualization").checked = settings.longResponseVirtualization;
-  document.querySelector("#pauseHiddenRendering").checked = settings.pauseHiddenRendering;
-  document.querySelector("#showDock").checked = settings.showDock;
+  settings = { ...DEFAULT_SETTINGS, ...(await chrome.storage.sync.get(DEFAULT_SETTINGS)) };
+  const local = await chrome.storage.local.get({ [THREAD_OVERRIDES_KEY]: {} });
+  threadOverrides = local[THREAD_OVERRIDES_KEY] || {};
+
+  $("#enabled").checked = settings.enabled;
+  $(`input[name="mode"][value="${settings.mode}"]`).checked = true;
+  $("#keepCount").value = settings.keepCount;
+  $("#batchSize").value = settings.batchSize;
+  $("#autoCollapseTraces").checked = settings.autoCollapseTraces;
+  $("#longResponseVirtualization").checked = settings.longResponseVirtualization;
+  $("#pauseHiddenRendering").checked = settings.pauseHiddenRendering;
+  $("#showDock").checked = settings.showDock;
   setModeHint(settings.mode);
 
   const tab = await activeTab();
+  updateThreadControls();
   const isChatGPT = /^https:\/\/(chatgpt\.com|chat\.openai\.com)\//.test(tab?.url || "");
   if (!isChatGPT) {
-    document.querySelector("#statusLine").textContent = "Open a ChatGPT conversation to use it";
+    $("#statusLine").textContent = "Open ChatGPT to use the optimizer";
     document.querySelectorAll(".actions button").forEach((button) => { button.disabled = true; });
     return;
   }
@@ -59,47 +101,81 @@ async function load() {
 async function refreshStatus() {
   const status = await send("CGO_GET_STATUS");
   if (!status?.ok) {
-    document.querySelector("#statusLine").textContent = "Reload this ChatGPT tab once to activate";
+    $("#statusLine").textContent = "Reload this ChatGPT tab once to activate";
     return;
   }
-  document.querySelector("#liveCount").textContent = status.liveDom.toLocaleString();
-  document.querySelector("#trimmedCount").textContent = status.networkRemoved.toLocaleString();
-  document.querySelector("#nodesSaved").textContent = status.approxNodesSaved.toLocaleString();
+  $("#liveCount").textContent = status.liveDom.toLocaleString();
+  $("#trimmedCount").textContent = status.networkRemoved.toLocaleString();
+  $("#nodesSaved").textContent = status.approxNodesSaved.toLocaleString();
   const mode = status.mode[0].toUpperCase() + status.mode.slice(1);
-  const source = status.networkTrimmed ? "pre-React trim active" : status.mode === "safe" ? "containment only" : "DOM fallback";
-  document.querySelector("#statusLine").textContent = `${mode} · ${source}${status.generating ? " · streaming" : ""}`;
+  const source = status.networkTrimmed ? "pre-React trim" : status.mode === "safe" ? "containment" : "DOM fallback";
+  $("#statusLine").textContent = `${mode} · ${source}${status.generating ? " · streaming" : ""}`;
 }
 
 function queueSave() {
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(saveSettings, 120);
+  saveTimer = setTimeout(saveSettings, 100);
 }
 
 async function saveSettings() {
   const mode = document.querySelector('input[name="mode"]:checked')?.value || "turbo";
-  const settings = {
-    enabled: document.querySelector("#enabled").checked,
+  settings = {
+    enabled: $("#enabled").checked,
     mode,
-    keepCount: Math.min(200, Math.max(5, Number(document.querySelector("#keepCount").value) || 30)),
-    batchSize: Math.min(50, Math.max(1, Number(document.querySelector("#batchSize").value) || 10)),
-    autoCollapseTraces: document.querySelector("#autoCollapseTraces").checked,
-    longResponseVirtualization: document.querySelector("#longResponseVirtualization").checked,
-    pauseHiddenRendering: document.querySelector("#pauseHiddenRendering").checked,
-    showDock: document.querySelector("#showDock").checked
+    keepCount: clamp($("#keepCount").value, 5, 200, 30),
+    batchSize: clamp($("#batchSize").value, 1, 50, 10),
+    autoCollapseTraces: $("#autoCollapseTraces").checked,
+    longResponseVirtualization: $("#longResponseVirtualization").checked,
+    pauseHiddenRendering: $("#pauseHiddenRendering").checked,
+    showDock: $("#showDock").checked
   };
   await chrome.storage.sync.set(settings);
   setModeHint(mode);
-  setTimeout(refreshStatus, 220);
+  updateThreadControls();
+  setTimeout(refreshStatus, 180);
 }
 
-for (const control of document.querySelectorAll("input")) {
+async function saveThreadOverride() {
+  if (!activeConversationId) return;
+  const enabled = $("#threadOverrideEnabled").checked;
+  if (enabled) {
+    threadOverrides[activeConversationId] = clamp($("#threadKeepCount").value, 5, 200, settings.keepCount);
+  } else {
+    delete threadOverrides[activeConversationId];
+  }
+  await chrome.storage.local.set({ [THREAD_OVERRIDES_KEY]: threadOverrides });
+  threadDirty = true;
+  updateThreadControls();
+}
+
+for (const control of document.querySelectorAll("#enabled,input[name='mode'],#keepCount,#batchSize,#autoCollapseTraces,#longResponseVirtualization,#pauseHiddenRendering,#showDock")) {
   control.addEventListener("change", queueSave);
   if (control.type === "number") control.addEventListener("input", queueSave);
 }
 
-document.querySelector("#older").addEventListener("click", async () => { await send("CGO_OPEN_ARCHIVE"); window.close(); });
-document.querySelector("#latest").addEventListener("click", async () => { await send("CGO_SHOW_LATEST"); await refreshStatus(); });
-document.querySelector("#optimize").addEventListener("click", async () => { await send("CGO_OPTIMIZE_NOW"); await refreshStatus(); });
-document.querySelector("#fullHistory").addEventListener("click", async () => { await send("CGO_FULL_HISTORY"); window.close(); });
+$("#threadOverrideEnabled").addEventListener("change", async () => {
+  if ($("#threadOverrideEnabled").checked && activeConversationId && !Object.prototype.hasOwnProperty.call(threadOverrides, activeConversationId)) {
+    $("#threadKeepCount").value = settings.keepCount;
+  }
+  await saveThreadOverride();
+});
+
+$("#threadKeepCount").addEventListener("input", () => {
+  if (!$("#threadOverrideEnabled").checked) return;
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveThreadOverride, 120);
+});
+$("#threadKeepCount").addEventListener("change", saveThreadOverride);
+
+$("#applyThreadReload").addEventListener("click", async () => {
+  await saveThreadOverride();
+  if (activeTabId) await chrome.tabs.reload(activeTabId);
+  window.close();
+});
+
+$("#older").addEventListener("click", async () => { await send("CGO_OPEN_ARCHIVE"); window.close(); });
+$("#latest").addEventListener("click", async () => { await send("CGO_SHOW_LATEST"); await refreshStatus(); });
+$("#optimize").addEventListener("click", async () => { await send("CGO_OPTIMIZE_NOW"); await refreshStatus(); });
+$("#fullHistory").addEventListener("click", async () => { await send("CGO_FULL_HISTORY"); window.close(); });
 
 load();
