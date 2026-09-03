@@ -25,6 +25,7 @@ let threadDirty = false;
 
 const $ = (selector) => document.querySelector(selector);
 const clamp = (value, min, max, fallback) => Math.min(max, Math.max(min, Number(value) || fallback));
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function conversationIdFromUrl(urlString) {
   try {
@@ -169,6 +170,7 @@ $("#threadKeepCount").addEventListener("change", saveThreadOverride);
 
 $("#applyThreadReload").addEventListener("click", async () => {
   await saveThreadOverride();
+  await sleep(160);
   if (activeTabId) await chrome.tabs.reload(activeTabId);
   window.close();
 });
