@@ -4,8 +4,10 @@
   if (window.__CGO_FETCH_PATCHED__) return;
 
   const STORAGE_KEY = "cgo_config_v1";
+  const OVERRIDES_KEY = "cgo_thread_overrides_v1";
   const BYPASS_KEY = "cgo_full_history_once";
   const CONFIG_EVENT = "cgo-config";
+  const OVERRIDES_EVENT = "cgo-thread-overrides";
   const STATUS_EVENT = "cgo-status";
   const ARCHIVE_REQUEST_EVENT = "cgo-archive-request";
   const ARCHIVE_RESPONSE_EVENT = "cgo-archive-response";
@@ -14,6 +16,7 @@
   const archives = new Map();
   let latestConversationId = null;
   let config = readStoredConfig() || { ...DEFAULT_CONFIG };
+  let threadOverrides = readStoredOverrides();
   let configResolved = Boolean(readStoredConfig());
   let resolveConfigReady;
   const configReady = new Promise((resolve) => { resolveConfigReady = resolve; });
@@ -25,6 +28,27 @@
       return normalizeConfig(JSON.parse(raw));
     } catch {
       return null;
+    }
+  }
+
+  function normalizeOverrides(value) {
+    const clean = {};
+    if (!value || typeof value !== "object" || Array.isArray(value)) return clean;
+    for (const [id, raw] of Object.entries(value)) {
+      if (!id || typeof id !== "string") continue;
+      const keepCount = Math.min(200, Math.max(5, Math.round(Number(raw) || 0)));
+      if (Number.isFinite(keepCount) && keepCount >= 5) clean[id] = keepCount;
+    }
+    return clean;
+  }
+
+  function readStoredOverrides() {
+    try {
+      const raw = localStorage.getItem(OVERRIDES_KEY);
+      if (!raw) return {};
+      return normalizeOverrides(JSON.parse(raw));
+    } catch {
+      return {};
     }
   }
 
@@ -42,6 +66,17 @@
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(config)); } catch {}
     resolveConfigReady?.();
     resolveConfigReady = null;
+  }
+
+  function setOverrides(next) {
+    threadOverrides = normalizeOverrides(next);
+    try { localStorage.setItem(OVERRIDES_KEY, JSON.stringify(threadOverrides)); } catch {}
+  }
+
+  function keepCountFor(conversationId) {
+    const override = Number(threadOverrides?.[conversationId]);
+    if (Number.isFinite(override) && override >= 5) return Math.min(200, Math.max(5, override));
+    return config.keepCount;
   }
 
   async function ensureConfigReady() {
@@ -117,6 +152,11 @@
     try { setConfig(JSON.parse(event.detail)); } catch {}
   });
 
+  window.addEventListener(OVERRIDES_EVENT, (event) => {
+    if (typeof event.detail !== "string") return;
+    try { setOverrides(JSON.parse(event.detail)); } catch {}
+  });
+
   window.addEventListener(ARCHIVE_REQUEST_EVENT, (event) => {
     if (typeof event.detail !== "string") return;
     let request;
@@ -155,6 +195,9 @@
     const conversationId = conversationIdFrom(info.url);
     if (!conversationId || !response.ok || !isJson(response)) return response;
 
+    const effectiveKeepCount = keepCountFor(conversationId);
+    const threadOverride = Object.prototype.hasOwnProperty.call(threadOverrides, conversationId);
+
     let bypass = false;
     try {
       bypass = sessionStorage.getItem(BYPASS_KEY) === "1";
@@ -167,14 +210,15 @@
         conversationId,
         trimmed: false,
         bypassed: bypass,
-        keepCount: config.keepCount
+        keepCount: effectiveKeepCount,
+        threadOverride
       });
       return response;
     }
 
     try {
       const data = await response.clone().json();
-      const result = window.__CGO_TRIMMER__?.trimConversation(data, config.keepCount);
+      const result = window.__CGO_TRIMMER__?.trimConversation(data, effectiveKeepCount);
       if (!result) return response;
 
       archiveFor(conversationId, result.archive || []);
@@ -185,7 +229,8 @@
         total: result.visibleTotal,
         kept: result.visibleKept,
         removed: Math.max(0, result.visibleTotal - result.visibleKept),
-        keepCount: config.keepCount,
+        keepCount: effectiveKeepCount,
+        threadOverride,
         archiveCount: result.archive?.length || 0
       });
 
@@ -202,7 +247,8 @@
         conversationId,
         trimmed: false,
         error: String(error?.message || error),
-        keepCount: config.keepCount
+        keepCount: effectiveKeepCount,
+        threadOverride
       });
       return response;
     }
