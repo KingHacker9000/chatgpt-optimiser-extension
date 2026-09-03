@@ -33,6 +33,16 @@ test("keeps the requested number of visible user/assistant turns", () => {
   assert.deepEqual(Object.keys(result.mapping), ["root", "u4", "t4", "a4", "u5", "t5", "a5"]);
 });
 
+test("supports a one-message history window", () => {
+  const data = linearConversation(3);
+  const result = trimConversation(data, 1);
+  assert.equal(result.changed, true);
+  assert.equal(result.visibleTotal, 6);
+  assert.equal(result.visibleKept, 1);
+  assert.equal(result.archive.length, 5);
+  assert.deepEqual(Object.keys(result.mapping), ["root", "a2"]);
+});
+
 test("preserves hidden nodes attached to kept visible messages", () => {
   const data = linearConversation(3);
   const result = trimConversation(data, 2);
