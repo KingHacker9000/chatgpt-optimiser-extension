@@ -12,6 +12,7 @@
     showDock: true
   });
 
+  const THREAD_OVERRIDES_KEY = "threadKeepCounts";
   const CONFIG_EVENT = "cgo-config";
   const STATUS_EVENT = "cgo-status";
   const PROXY_READY_EVENT = "cgo-proxy-ready";
@@ -74,6 +75,7 @@
   class Optimizer {
     constructor() {
       this.settings = { ...DEFAULT_SETTINGS };
+      this.threadOverrides = {};
       this.snapshots = new Map();
       this.hibernated = new Set();
       this.pinned = new Set();
@@ -96,7 +98,12 @@
 
     async init() {
       this.installBridgeListeners();
-      this.settings = { ...DEFAULT_SETTINGS, ...(await chrome.storage.sync.get(DEFAULT_SETTINGS)) };
+      const [syncSettings, localSettings] = await Promise.all([
+        chrome.storage.sync.get(DEFAULT_SETTINGS),
+        chrome.storage.local.get({ [THREAD_OVERRIDES_KEY]: {} })
+      ]);
+      this.settings = { ...DEFAULT_SETTINGS, ...syncSettings };
+      this.threadOverrides = localSettings[THREAD_OVERRIDES_KEY] || {};
       this.sendConfig();
       this.applyRootClasses();
       this.installPageListeners();
@@ -134,6 +141,11 @@
       window.addEventListener("popstate", () => this.onRouteMaybeChanged());
 
       chrome.storage.onChanged.addListener((changes, area) => {
+        if (area === "local" && changes[THREAD_OVERRIDES_KEY]) {
+          this.threadOverrides = changes[THREAD_OVERRIDES_KEY].newValue || {};
+          this.scheduleReconcile(0);
+          return;
+        }
         if (area !== "sync") return;
         let changed = false;
         for (const key of Object.keys(DEFAULT_SETTINGS)) {
@@ -179,6 +191,22 @@
         }
       });
       this.observer.observe(document.documentElement, { childList: true, subtree: true });
+    }
+
+    currentConversationId() {
+      try {
+        const match = location.pathname.match(/\/c\/([^/?#]+)/) || location.pathname.match(/\/share\/([^/?#]+)/);
+        return match?.[1] || this.network.conversationId || null;
+      } catch {
+        return this.network.conversationId || null;
+      }
+    }
+
+    effectiveKeepCount() {
+      const conversationId = this.currentConversationId();
+      const override = conversationId ? Number(this.threadOverrides?.[conversationId]) : NaN;
+      if (Number.isFinite(override) && override >= 1) return clamp(Math.round(override), 1, 200);
+      return clamp(Number(this.settings.keepCount) || 30, 1, 200);
     }
 
     sendConfig() {
@@ -259,7 +287,7 @@
         return;
       }
 
-      const keep = clamp(Number(this.settings.keepCount) || 30, 1, 200);
+      const keep = this.effectiveKeepCount();
       if (turns.length > keep) {
         const cutoff = Math.max(0, turns.length - keep);
         const generating = this.isGenerating();
@@ -563,11 +591,13 @@
       this.recalculateDomStats();
       const liveDom = Math.max(0, this.domStats.turns - this.hibernated.size);
       const total = this.network.total || this.domStats.turns;
+      const conversationId = this.currentConversationId();
       return {
         ok: true,
         enabled: this.settings.enabled,
         mode: this.settings.mode,
-        keepCount: this.settings.keepCount,
+        keepCount: this.effectiveKeepCount(),
+        threadOverride: Boolean(conversationId && Object.prototype.hasOwnProperty.call(this.threadOverrides, conversationId)),
         generating: this.isGenerating(),
         turns: this.domStats.turns,
         liveDom,
@@ -649,7 +679,7 @@
       if (saved) saved.textContent = (status.networkRemoved + status.domHibernated).toLocaleString();
       if (note) {
         const source = status.networkTrimmed ? "pre-React trim active" : status.mode === "safe" ? "containment only" : "DOM fallback active";
-        note.textContent = `${status.mode[0].toUpperCase()}${status.mode.slice(1)} · ${source}${status.generating ? " · streaming" : ""}`;
+        note.textContent = `${status.mode[0].toUpperCase()}${status.mode.slice(1)} · ${source}${status.threadOverride ? ` · ${status.keepCount}-message thread limit` : ""}${status.generating ? " · streaming" : ""}`;
       }
     }
   }
