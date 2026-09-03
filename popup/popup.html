@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ChatGPT Thread Optimizer</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="header">
+        <div class="logo" aria-hidden="true">⚡</div>
+        <div>
+          <h1>Thread Optimizer</h1>
+          <p id="statusLine">Checking this tab…</p>
+        </div>
+        <label class="switch" title="Enable optimizer"><input id="enabled" type="checkbox" /><span></span></label>
+      </header>
+
+      <section class="hero">
+        <div><strong id="liveCount">—</strong><span>live React</span></div>
+        <div><strong id="trimmedCount">—</strong><span>pre-React trimmed</span></div>
+        <div><strong id="nodesSaved">—</strong><span>DOM nodes pruned</span></div>
+      </section>
+
+      <section class="card">
+        <div class="section-title">Performance mode</div>
+        <div class="segmented" role="radiogroup" aria-label="Performance mode">
+          <label><input type="radio" name="mode" value="safe" /><span>Safe<small>CSS only</small></span></label>
+          <label><input type="radio" name="mode" value="turbo" /><span>Turbo<small>recommended</small></span></label>
+          <label><input type="radio" name="mode" value="extreme" /><span>Extreme<small>minimum RAM</small></span></label>
+        </div>
+        <p class="hint" id="modeHint"></p>
+      </section>
+
+      <section class="card compact">
+        <label class="row" for="keepCount"><span><b>Messages kept in React</b><small>Older history is trimmed before ChatGPT renders it.</small></span><input id="keepCount" type="number" min="5" max="200" step="5" /></label>
+        <label class="row" for="batchSize"><span><b>Older-history batch</b><small>Messages per page in the lazy history viewer.</small></span><input id="batchSize" type="number" min="1" max="50" step="1" /></label>
+      </section>
+
+      <section class="card compact toggles">
+        <label class="row"><span><b>Compact huge thinking/tool traces</b><small>Uses ChatGPT's own collapse controls on heavy expanded traces.</small></span><input id="autoCollapseTraces" type="checkbox" /></label>
+        <label class="row"><span><b>Virtualize huge single replies</b><small>Skips layout/paint for off-screen Markdown blocks.</small></span><input id="longResponseVirtualization" type="checkbox" /></label>
+        <label class="row"><span><b>Stop hidden-tab painting</b><small>Responses keep running while conversation rendering is skipped.</small></span><input id="pauseHiddenRendering" type="checkbox" /></label>
+        <label class="row"><span><b>Show in-page dock</b><small>Quick performance controls beside ChatGPT.</small></span><input id="showDock" type="checkbox" /></label>
+      </section>
+
+      <section class="actions">
+        <button id="older">Older history</button>
+        <button id="latest">Jump latest</button>
+        <button id="optimize" class="primary">Optimize now</button>
+        <button id="fullHistory">Full history ↻</button>
+      </section>
+
+      <footer>Local-only. No analytics, telemetry, or external requests.</footer>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>
