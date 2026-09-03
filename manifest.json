@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ChatGPT Thread Optimizer",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Keep huge ChatGPT conversations fast by trimming history before React renders it and virtualizing heavy responses.",
   "minimum_chrome_version": "120",
   "permissions": [
@@ -42,7 +42,9 @@
         "https://chat.openai.com/*"
       ],
       "js": [
-        "src/content.js"
+        "src/content.js",
+        "src/thread-overrides.js",
+        "src/ui-polish.js"
       ],
       "css": [
         "src/content.css"
