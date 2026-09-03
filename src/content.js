@@ -186,7 +186,7 @@
         detail: JSON.stringify({
           enabled: this.settings.enabled,
           mode: this.settings.mode,
-          keepCount: clamp(Number(this.settings.keepCount) || 30, 5, 200)
+          keepCount: clamp(Number(this.settings.keepCount) || 30, 1, 200)
         })
       }));
     }
@@ -259,7 +259,7 @@
         return;
       }
 
-      const keep = clamp(Number(this.settings.keepCount) || 30, 5, 200);
+      const keep = clamp(Number(this.settings.keepCount) || 30, 1, 200);
       if (turns.length > keep) {
         const cutoff = Math.max(0, turns.length - keep);
         const generating = this.isGenerating();
