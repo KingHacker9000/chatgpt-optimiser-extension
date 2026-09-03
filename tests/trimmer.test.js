@@ -40,7 +40,7 @@ test("supports a one-message history window", () => {
   assert.equal(result.visibleTotal, 6);
   assert.equal(result.visibleKept, 1);
   assert.equal(result.archive.length, 5);
-  assert.deepEqual(Object.keys(result.mapping), ["root", "a2"]);
+  assert.deepEqual(Object.keys(result.mapping), ["root", "t2", "a2"]);
 });
 
 test("preserves hidden nodes attached to kept visible messages", () => {
