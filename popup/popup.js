@@ -123,7 +123,7 @@ async function saveSettings() {
   settings = {
     enabled: $("#enabled").checked,
     mode,
-    keepCount: clamp($("#keepCount").value, 5, 200, 30),
+    keepCount: clamp($("#keepCount").value, 1, 200, 30),
     batchSize: clamp($("#batchSize").value, 1, 50, 10),
     autoCollapseTraces: $("#autoCollapseTraces").checked,
     longResponseVirtualization: $("#longResponseVirtualization").checked,
@@ -140,7 +140,7 @@ async function saveThreadOverride() {
   if (!activeConversationId) return;
   const enabled = $("#threadOverrideEnabled").checked;
   if (enabled) {
-    threadOverrides[activeConversationId] = clamp($("#threadKeepCount").value, 5, 200, settings.keepCount);
+    threadOverrides[activeConversationId] = clamp($("#threadKeepCount").value, 1, 200, settings.keepCount);
   } else {
     delete threadOverrides[activeConversationId];
   }
