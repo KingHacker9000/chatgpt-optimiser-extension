@@ -1,0 +1,56 @@
+/* Off-screen ChatGPT turns keep their DOM for accessibility but skip most layout/paint. */
+html.cgo-enabled [data-cgo-turn="1"] {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 320px;
+}
+
+/* One assistant answer can itself be enormous. Treat each Markdown block as a
+   virtualizable unit so a 50k-line response is not one giant render surface. */
+html.cgo-enabled.cgo-long-response-virtualization [data-message-author-role="assistant"] .markdown > *,
+html.cgo-enabled.cgo-long-response-virtualization [data-message-author-role="assistant"] [class*="markdown"] > * {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 48px;
+}
+
+html.cgo-enabled details,
+html.cgo-enabled [data-testid*="tool" i],
+html.cgo-enabled [data-testid*="reason" i] {
+  contain: layout paint style;
+}
+
+/* No pixels need to be produced for a background tab. ChatGPT networking and
+   generation continue; this only removes rendering work until the tab is shown. */
+html.cgo-enabled.cgo-tab-hidden [data-cgo-turn="1"] {
+  content-visibility: hidden !important;
+}
+
+html.cgo-enabled.cgo-mode-extreme [data-cgo-turn="1"] * {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}
+
+[data-cgo-hibernated="1"] {
+  content-visibility: visible !important;
+  contain: content;
+}
+
+.cgo-placeholder {
+  box-sizing: border-box;
+  width: min(100%, 48rem);
+  min-height: 72px;
+  margin: 8px auto;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, Canvas 94%, currentColor 6%);
+  color: CanvasText;
+  font: 13px/1.45 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.cgo-placeholder__top { display: flex; gap: 10px; align-items: center; justify-content: space-between; }
+.cgo-placeholder__label { font-weight: 650; opacity: 0.88; }
+.cgo-placeholder__excerpt { margin-top: 7px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; opacity: 0.62; }
+.cgo-placeholder__button { appearance: none; border: 1px solid color-mix(in srgb,currentColor 18%,transparent); border-radius: 999px; padding: 5px 10px; background: color-mix(in srgb,Canvas 86%,currentColor 14%); color: inherit; cursor: pointer; font: inherit; font-weight: 600; }
+.cgo-placeholder__button:hover { background: color-mix(in srgb,Canvas 78%,currentColor 22%); }
+.cgo-static-snapshot { box-sizing: border-box; width: min(100%,48rem); margin: 0 auto; white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; }
