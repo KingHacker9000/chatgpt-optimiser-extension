@@ -4,7 +4,7 @@
   const OVERRIDES_STORAGE_KEY = "threadKeepCounts";
   const OVERRIDES_PAGE_KEY = "cgo_thread_overrides_v1";
   const OVERRIDES_EVENT = "cgo-thread-overrides";
-  const MIN_KEEP = 5;
+  const MIN_KEEP = 1;
   const MAX_KEEP = 200;
 
   let overrides = {};
