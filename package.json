@@ -1,0 +1,13 @@
+{
+  "name": "chatgpt-thread-optimizer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Chrome MV3 extension that keeps very long ChatGPT conversations responsive.",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "check": "node --check src/trimmer.js && node --check src/interceptor.js && node --check src/content.js && node --check src/background.js && node --check popup/popup.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
