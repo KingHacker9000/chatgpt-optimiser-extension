@@ -9,50 +9,82 @@
   <body>
     <main class="shell">
       <header class="header">
-        <div class="logo" aria-hidden="true">⚡</div>
-        <div>
+        <div class="brandmark" aria-hidden="true">⚡</div>
+        <div class="brandcopy">
           <h1>Thread Optimizer</h1>
           <p id="statusLine">Checking this tab…</p>
         </div>
-        <label class="switch" title="Enable optimizer"><input id="enabled" type="checkbox" /><span></span></label>
+        <label class="master-switch" title="Enable optimizer">
+          <input id="enabled" type="checkbox" />
+          <span aria-hidden="true"></span>
+        </label>
       </header>
 
-      <section class="hero">
-        <div><strong id="liveCount">—</strong><span>live React</span></div>
-        <div><strong id="trimmedCount">—</strong><span>pre-React trimmed</span></div>
-        <div><strong id="nodesSaved">—</strong><span>DOM nodes pruned</span></div>
+      <section class="metrics" aria-label="Current optimization status">
+        <div><strong id="liveCount">—</strong><span>live</span></div>
+        <div><strong id="trimmedCount">—</strong><span>trimmed</span></div>
+        <div><strong id="nodesSaved">—</strong><span>DOM saved</span></div>
       </section>
 
-      <section class="card">
-        <div class="section-title">Performance mode</div>
+      <section class="panel mode-panel">
+        <div class="panel-heading"><span>Mode</span><span class="badge">recommended: Turbo</span></div>
         <div class="segmented" role="radiogroup" aria-label="Performance mode">
-          <label><input type="radio" name="mode" value="safe" /><span>Safe<small>CSS only</small></span></label>
-          <label><input type="radio" name="mode" value="turbo" /><span>Turbo<small>recommended</small></span></label>
-          <label><input type="radio" name="mode" value="extreme" /><span>Extreme<small>minimum RAM</small></span></label>
+          <label><input type="radio" name="mode" value="safe" /><span>Safe</span></label>
+          <label><input type="radio" name="mode" value="turbo" /><span>Turbo</span></label>
+          <label><input type="radio" name="mode" value="extreme" /><span>Extreme</span></label>
         </div>
         <p class="hint" id="modeHint"></p>
       </section>
 
-      <section class="card compact">
-        <label class="row" for="keepCount"><span><b>Messages kept in React</b><small>Older history is trimmed before ChatGPT renders it.</small></span><input id="keepCount" type="number" min="5" max="200" step="5" /></label>
-        <label class="row" for="batchSize"><span><b>Older-history batch</b><small>Messages per page in the lazy history viewer.</small></span><input id="batchSize" type="number" min="1" max="50" step="1" /></label>
+      <section class="panel history-panel">
+        <div class="panel-heading"><span>History window</span><span id="effectiveBadge" class="badge accent">Default</span></div>
+
+        <label class="setting-row" for="keepCount">
+          <span><b>Default</b><small>Used for every conversation unless overridden.</small></span>
+          <input id="keepCount" class="number" type="number" min="5" max="200" step="5" />
+        </label>
+
+        <div id="threadOverrideRow" class="thread-override">
+          <div class="thread-copy">
+            <b>This conversation</b>
+            <small id="threadOverrideHelp">Use a smaller or larger window just for this thread.</small>
+          </div>
+          <label class="mini-switch" title="Override the global history window for this conversation">
+            <input id="threadOverrideEnabled" type="checkbox" />
+            <span aria-hidden="true"></span>
+          </label>
+          <input id="threadKeepCount" class="number" type="number" min="5" max="200" step="5" disabled />
+        </div>
+
+        <div id="reloadNotice" class="reload-notice" hidden>
+          <span>Reload once to apply the new per-thread RAM limit.</span>
+          <button id="applyThreadReload" class="text-button">Apply & reload</button>
+        </div>
+
+        <label class="setting-row secondary" for="batchSize">
+          <span><b>Older-history batch</b><small>Messages shown per lazy-history page.</small></span>
+          <input id="batchSize" class="number" type="number" min="1" max="50" step="1" />
+        </label>
       </section>
 
-      <section class="card compact toggles">
-        <label class="row"><span><b>Compact huge thinking/tool traces</b><small>Uses ChatGPT's own collapse controls on heavy expanded traces.</small></span><input id="autoCollapseTraces" type="checkbox" /></label>
-        <label class="row"><span><b>Virtualize huge single replies</b><small>Skips layout/paint for off-screen Markdown blocks.</small></span><input id="longResponseVirtualization" type="checkbox" /></label>
-        <label class="row"><span><b>Stop hidden-tab painting</b><small>Responses keep running while conversation rendering is skipped.</small></span><input id="pauseHiddenRendering" type="checkbox" /></label>
-        <label class="row"><span><b>Show in-page dock</b><small>Quick performance controls beside ChatGPT.</small></span><input id="showDock" type="checkbox" /></label>
-      </section>
+      <details class="panel advanced">
+        <summary>Advanced optimizations</summary>
+        <div class="advanced-body">
+          <label class="toggle-row"><span><b>Compact huge thinking/tool traces</b><small>Collapses only heavy expanded traces.</small></span><input id="autoCollapseTraces" type="checkbox" /></label>
+          <label class="toggle-row"><span><b>Virtualize huge single replies</b><small>Skips off-screen layout and paint.</small></span><input id="longResponseVirtualization" type="checkbox" /></label>
+          <label class="toggle-row"><span><b>Stop hidden-tab painting</b><small>Generation continues while rendering sleeps.</small></span><input id="pauseHiddenRendering" type="checkbox" /></label>
+          <label class="toggle-row"><span><b>Show edge handle</b><small>Tiny collapsed shortcut inside ChatGPT.</small></span><input id="showDock" type="checkbox" /></label>
+        </div>
+      </details>
 
       <section class="actions">
         <button id="older">Older history</button>
-        <button id="latest">Jump latest</button>
         <button id="optimize" class="primary">Optimize now</button>
+        <button id="latest">Jump latest</button>
         <button id="fullHistory">Full history ↻</button>
       </section>
 
-      <footer>Local-only. No analytics, telemetry, or external requests.</footer>
+      <footer>Local-only · no analytics or external requests</footer>
     </main>
     <script src="popup.js"></script>
   </body>
