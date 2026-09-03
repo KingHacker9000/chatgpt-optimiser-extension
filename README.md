@@ -19,10 +19,10 @@ The conversation stored on ChatGPT's servers is not deleted or shortened. Only t
 The global history window is only a default. Any saved ChatGPT conversation can have its own override, for example:
 
 - global default: 30 messages;
-- one giant research thread: 10 messages;
+- one giant research thread: 1 message;
 - another thread where more context is useful: 60 messages.
 
-Open the popup, enable **This conversation**, choose its limit, then click **Apply & reload**. The override is applied by the same pre-React trimming path, so the extra history does not get mounted just because that thread uses a different limit. Disable the override to return that thread to the global default.
+Limits can be set from **1–200 messages in single-message increments**. Open the popup, enable **This conversation**, choose its limit, then click **Apply & reload**. The override is applied by the same pre-React trimming path, so the extra history does not get mounted just because that thread uses a different limit. Disable the override to return that thread to the global default.
 
 Per-thread overrides are stored locally in the Chrome profile rather than Chrome Sync so a large number of thread IDs cannot consume sync quota.
 
@@ -75,8 +75,8 @@ No build step or dependencies are required to run the extension.
 
 Open the extension popup while on ChatGPT:
 
-- **Default** controls the normal live history window (5–200 messages).
-- **This conversation** optionally overrides that value only for the current saved thread.
+- **Default** controls the normal live history window (1–200 messages, step 1).
+- **This conversation** optionally overrides that value only for the current saved thread, also from 1–200 in step-1 increments.
 - **Older history** opens the lazy archive viewer.
 - **Optimize now** hibernates excess DOM that accumulated after page load.
 - **Jump latest** closes the archive viewer and returns to the current response.
@@ -114,7 +114,7 @@ npm test
 npm run check
 ```
 
-`npm test` exercises active-branch trimming, hidden-node preservation, archive behavior, and malformed-payload fail-safes with Node's built-in test runner.
+`npm test` exercises active-branch trimming, including a one-message window, hidden-node preservation, archive behavior, and malformed-payload fail-safes with Node's built-in test runner.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the detailed design.
 
