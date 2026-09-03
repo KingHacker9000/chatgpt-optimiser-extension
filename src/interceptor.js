@@ -36,8 +36,8 @@
     if (!value || typeof value !== "object" || Array.isArray(value)) return clean;
     for (const [id, raw] of Object.entries(value)) {
       if (!id || typeof id !== "string") continue;
-      const keepCount = Math.min(200, Math.max(5, Math.round(Number(raw) || 0)));
-      if (Number.isFinite(keepCount) && keepCount >= 5) clean[id] = keepCount;
+      const keepCount = Math.min(200, Math.max(1, Math.round(Number(raw) || 0)));
+      if (Number.isFinite(keepCount) && keepCount >= 1) clean[id] = keepCount;
     }
     return clean;
   }
@@ -56,7 +56,7 @@
     return {
       enabled: value?.enabled !== false,
       mode: ["safe", "turbo", "extreme"].includes(value?.mode) ? value.mode : DEFAULT_CONFIG.mode,
-      keepCount: Math.min(200, Math.max(5, Number(value?.keepCount) || DEFAULT_CONFIG.keepCount))
+      keepCount: Math.min(200, Math.max(1, Number(value?.keepCount) || DEFAULT_CONFIG.keepCount))
     };
   }
 
@@ -75,7 +75,7 @@
 
   function keepCountFor(conversationId) {
     const override = Number(threadOverrides?.[conversationId]);
-    if (Number.isFinite(override) && override >= 5) return Math.min(200, Math.max(5, override));
+    if (Number.isFinite(override) && override >= 1) return Math.min(200, Math.max(1, override));
     return config.keepCount;
   }
 
